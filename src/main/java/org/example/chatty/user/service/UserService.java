@@ -2,6 +2,7 @@ package org.example.chatty.user.service;
 
 import org.example.chatty.user.dto.UserDto;
 import org.example.chatty.user.entity.User;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 

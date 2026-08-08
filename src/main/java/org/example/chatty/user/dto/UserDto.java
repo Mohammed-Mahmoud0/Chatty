@@ -14,5 +14,7 @@ public record UserDto(
         String imageType,
         @Lob
         byte[] imageData
-) {
+    )
+{
+
 }
