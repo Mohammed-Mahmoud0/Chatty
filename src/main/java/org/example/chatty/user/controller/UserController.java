@@ -39,14 +39,34 @@ public class UserController {
 
     @PostMapping("/user")
     public ResponseEntity<?> addUser(@RequestPart User user, @RequestPart MultipartFile image) {
-        UserDto savedUserDto = null;
         try {
-            savedUserDto = userService.addUser(user, image);
+            UserDto savedUserDto = userService.addUser(user, image);
             return new ResponseEntity<>(savedUserDto, HttpStatus.CREATED);
         } catch (IOException e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
+    }
 
+    @PutMapping("/user")
+    public ResponseEntity<?> updateUser(@RequestPart User user, @RequestPart(required = false) MultipartFile image) {
+        UserDto updated;
+        try {
+            updated = userService.updateUser(user, image);
+        } catch (IOException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+        if (updated != null) return new ResponseEntity<>(updated, HttpStatus.OK);
+        else return new ResponseEntity<>("Not Found", HttpStatus.NOT_FOUND);
+    }
+
+    @DeleteMapping("/user/{email}")
+    public ResponseEntity<?> deleteUser(@PathVariable String email) {
+        UserDto existing = userService.getUser(email);
+        if (existing == null) return new ResponseEntity<>("Not Found", HttpStatus.NOT_FOUND);
+        User tmp = new User();
+        tmp.setEmail(email);
+        userService.deleteUser(tmp);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }
 
