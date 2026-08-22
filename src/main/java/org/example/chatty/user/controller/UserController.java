@@ -11,8 +11,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 
-@RequestMapping("/api")
+@RequestMapping("/api/users")
 @RestController
 public class UserController {
 
@@ -23,22 +24,32 @@ public class UserController {
         this.userService = userService;
     }
 
-    @GetMapping("/users")
+    @GetMapping
     public ResponseEntity<List<UserDto>> getUsers() {
         return new ResponseEntity<>(userService.getUsers(), HttpStatus.OK);
     }
 
-    @GetMapping("/user/{email}")
-    public ResponseEntity<?> getUser(@PathVariable String email) {
-        UserDto userDto = userService.getUser(email);
-        if (userDto != null)
-            return new ResponseEntity<>(userDto, HttpStatus.OK);
-        else
-            return new ResponseEntity<>("Not Found", HttpStatus.NOT_FOUND);
+    @GetMapping("/{id}")
+    public ResponseEntity<UserDto> getUserById(@PathVariable UUID id) {
+        UserDto userDto = userService.getUserById(id);
+
+        return ResponseEntity.ok(userDto);
     }
 
-    @PostMapping("/user")
-    public ResponseEntity<?> addUser(@RequestPart User user, @RequestPart MultipartFile image) {
+    @GetMapping(params = "email")
+    public ResponseEntity<?> getUser(@RequestParam String email) {
+        UserDto userDto = userService.getUserByEmail(email);
+        return new ResponseEntity<>(userDto, HttpStatus.OK);
+    }
+
+    @GetMapping(params = "userName")
+    public ResponseEntity<?> getUserByUserName(@RequestParam String userName) {
+        UserDto userDto = userService.getUserByUserName(userName);
+        return new ResponseEntity<>(userDto, HttpStatus.OK);
+    }
+
+    @PostMapping
+    public ResponseEntity<?> addUser(@RequestPart User user, @RequestPart(required = false) MultipartFile image) {
         try {
             UserDto savedUserDto = userService.addUser(user, image);
             return new ResponseEntity<>(savedUserDto, HttpStatus.CREATED);
@@ -47,25 +58,19 @@ public class UserController {
         }
     }
 
-    @PutMapping("/user")
-    public ResponseEntity<?> updateUser(@RequestPart User user, @RequestPart(required = false) MultipartFile image) {
-        UserDto updated;
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateUser(@PathVariable UUID id, @RequestPart User user, @RequestPart(required = false) MultipartFile image) {
         try {
-            updated = userService.updateUser(user, image);
+            UserDto updated = userService.updateUser(id, user, image);
+            return new ResponseEntity<>(updated, HttpStatus.OK);
         } catch (IOException e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
-        if (updated != null) return new ResponseEntity<>(updated, HttpStatus.OK);
-        else return new ResponseEntity<>("Not Found", HttpStatus.NOT_FOUND);
     }
 
-    @DeleteMapping("/user/{email}")
-    public ResponseEntity<?> deleteUser(@PathVariable String email) {
-        UserDto existing = userService.getUser(email);
-        if (existing == null) return new ResponseEntity<>("Not Found", HttpStatus.NOT_FOUND);
-        User tmp = new User();
-        tmp.setEmail(email);
-        userService.deleteUser(tmp);
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteUser(@PathVariable UUID id) {
+        userService.deleteUser(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }

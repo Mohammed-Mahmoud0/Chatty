@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -25,40 +26,38 @@ public class UserServiceImpl implements UserService {
     public UserDto addUser(User user, MultipartFile image) throws IOException {
         user.setCreatedAt(LocalDateTime.now());
 
-        user.setImageName(image.getOriginalFilename());
-        user.setImageType(image.getContentType());
-        user.setImageData(image.getBytes());
+        if (image != null && !image.isEmpty()) {
+            user.setImageName(image.getOriginalFilename());
+            user.setImageType(image.getContentType());
+            user.setImageData(image.getBytes());
+        }
         User savedUser = userRepo.save(user);
-        return new UserDto(
-                savedUser.getUserName(),
-                savedUser.getEmail(),
-                savedUser.isStatus(),
-                savedUser.getLastSeen(),
-                savedUser.getCreatedAt(),
-                savedUser.getImageName(),
-                savedUser.getImageType(),
-                savedUser.getImageData()
-        );
+        return toDto(savedUser);
     }
 
     @Override
-    public UserDto getUser(String email) {
-        Optional<User> userOpt = userRepo.findByEmail(email);
-        if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            return new UserDto(
-                    user.getUserName(),
-                    user.getEmail(),
-                    user.isStatus(),
-                    user.getLastSeen(),
-                    user.getCreatedAt(),
-                    user.getImageName(),
-                    user.getImageType(),
-                    user.getImageData()
-            );
-        } else {
-            return null;
-        }
+    public UserDto getUserById(UUID id) {
+
+        User user = userRepo.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found")
+                );
+
+        return toDto(user);
+    }
+
+    @Override
+    public UserDto getUserByEmail(String email) {
+        User user = userRepo.findByEmail(email).orElseThrow(() ->
+                new RuntimeException("User not found"));
+        return toDto(user);
+    }
+
+    @Override
+    public UserDto getUserByUserName(String userName) {
+        User user = userRepo.findByUserName(userName).orElseThrow(() ->
+                new RuntimeException("User not found"));
+        return toDto(user);
     }
 
     @Override
@@ -66,26 +65,14 @@ public class UserServiceImpl implements UserService {
         List<User> users = userRepo.findAll();
 
         return users.stream()
-                .map(user -> new UserDto(
-                        user.getUserName(),
-                        user.getEmail(),
-                        user.isStatus(),
-                        user.getLastSeen(),
-                        user.getCreatedAt(),
-                        user.getImageName(),
-                        user.getImageType(),
-                        user.getImageData()
-                ))
+                .map(this::toDto)
                 .toList();
     }
 
     @Override
-    public UserDto updateUser(User user, MultipartFile image) throws IOException {
-        Optional<User> existingOpt = userRepo.findByEmail(user.getEmail());
-        if (existingOpt.isEmpty()) {
-            return null;
-        }
-        User existing = existingOpt.get();
+    public UserDto updateUser(UUID id, User user, MultipartFile image) throws IOException {
+        User existing = userRepo.findById(id).orElseThrow(() ->
+                new RuntimeException("User not found"));
 
         if (user.getUserName() != null) existing.setUserName(user.getUserName());
         if (user.getPassword() != null) existing.setPassword(user.getPassword());
@@ -103,21 +90,25 @@ public class UserServiceImpl implements UserService {
         }
 
         User saved = userRepo.save(existing);
-        return new UserDto(
-                saved.getUserName(),
-                saved.getEmail(),
-                saved.isStatus(),
-                saved.getLastSeen(),
-                saved.getCreatedAt(),
-                saved.getImageName(),
-                saved.getImageType(),
-                saved.getImageData()
-        );
+        return toDto(saved);
     }
 
     @Override
-    public void deleteUser(User user) {
-        Optional<User> existingOpt = userRepo.findByEmail(user.getEmail());
-        userRepo.delete(existingOpt.orElseThrow(() -> new RuntimeException("User not found")));
+    public void deleteUser(UUID id) {
+        User existing = userRepo.findById(id).orElseThrow(() ->
+                new RuntimeException("User not found"));
+        userRepo.delete(existing);
+    }
+
+    private UserDto toDto(User user) {
+
+        return new UserDto(
+                user.getId(),
+                user.getUserName(),
+                user.getEmail(),
+                user.isStatus(),
+                user.getLastSeen(),
+                user.getCreatedAt()
+        );
     }
 }
