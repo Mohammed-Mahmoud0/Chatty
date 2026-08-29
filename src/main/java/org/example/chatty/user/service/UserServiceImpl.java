@@ -4,6 +4,7 @@ import org.example.chatty.user.dto.UserDto;
 import org.example.chatty.user.entity.User;
 import org.example.chatty.user.repository.UserRepo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,15 +17,18 @@ import java.util.UUID;
 @Service
 public class UserServiceImpl implements UserService {
     private final UserRepo userRepo;
+    private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public UserServiceImpl(UserRepo userRepo) {
+    public UserServiceImpl(UserRepo userRepo, PasswordEncoder passwordEncoder) {
         this.userRepo = userRepo;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     public UserDto addUser(User user, MultipartFile image) throws IOException {
         user.setCreatedAt(LocalDateTime.now());
+        user.setPassword(encodeIfNeeded(user.getPassword()));
 
         if (image != null && !image.isEmpty()) {
             user.setImageName(image.getOriginalFilename());
@@ -75,7 +79,7 @@ public class UserServiceImpl implements UserService {
                 new RuntimeException("User not found"));
 
         if (user.getUserName() != null) existing.setUserName(user.getUserName());
-        if (user.getPassword() != null) existing.setPassword(user.getPassword());
+        if (user.getPassword() != null) existing.setPassword(encodeIfNeeded(user.getPassword()));
         existing.setStatus(user.isStatus());
         if (user.getLastSeen() != null) existing.setLastSeen(user.getLastSeen());
 
@@ -110,5 +114,15 @@ public class UserServiceImpl implements UserService {
                 user.getLastSeen(),
                 user.getCreatedAt()
         );
+    }
+
+    private String encodeIfNeeded(String password) {
+        if (password == null) {
+            return null;
+        }
+        if (password.startsWith("{")) {
+            return password;
+        }
+        return passwordEncoder.encode(password);
     }
 }
