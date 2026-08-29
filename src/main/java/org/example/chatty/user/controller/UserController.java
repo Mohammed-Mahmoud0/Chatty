@@ -38,20 +38,29 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserDto> getUserById(@PathVariable UUID id) {
-        UserDto userDto = userService.getUserById(id);
+    public ResponseEntity<UserDto> getUserById(@PathVariable UUID id, Authentication authentication) {
+        if (!userService.getUserById(id).userName().equals(authentication.getName())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
+        UserDto userDto = userService.getUserById(id);
         return ResponseEntity.ok(userDto);
     }
 
     @GetMapping(params = "email")
-    public ResponseEntity<?> getUser(@RequestParam String email) {
+    public ResponseEntity<?> getUser(@RequestParam String email, Authentication authentication) {
+        if (!userService.getUserByEmail(email).userName().equals(authentication.getName())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         UserDto userDto = userService.getUserByEmail(email);
         return new ResponseEntity<>(userDto, HttpStatus.OK);
     }
 
     @GetMapping(params = "userName")
-    public ResponseEntity<?> getUserByUserName(@RequestParam String userName) {
+    public ResponseEntity<?> getUserByUserName(@RequestParam String userName, Authentication authentication) {
+        if (!userService.getUserByUserName(userName).userName().equals(authentication.getName())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         UserDto userDto = userService.getUserByUserName(userName);
         return new ResponseEntity<>(userDto, HttpStatus.OK);
     }
@@ -68,21 +77,33 @@ public class UserController {
 
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody User user) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        user.getUserName(),
-                        user.getPassword()
-                )
-        );
-        if (authentication.isAuthenticated()) {
-            return new ResponseEntity<>(jwtService.generatedToken(user.getUserName()), HttpStatus.OK);
-        } else {
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            user.getUserName(),
+                            user.getPassword()
+                    )
+            );
+            if (authentication.isAuthenticated()) {
+                return new ResponseEntity<>(jwtService.generatedToken(user.getUserName()), HttpStatus.OK);
+            }
+        } catch (Exception e) {
             return new ResponseEntity<>("Invalid username or password", HttpStatus.UNAUTHORIZED);
         }
+        return new ResponseEntity<>("Invalid username or password", HttpStatus.UNAUTHORIZED);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateUser(@PathVariable UUID id, @RequestPart User user, @RequestPart(required = false) MultipartFile image) {
+    public ResponseEntity<?> updateUser(@PathVariable UUID id,
+                                        @RequestPart User user,
+                                        @RequestPart(required = false) MultipartFile image,
+                                        Authentication authentication) {
+
+        if (!userService.getUserById(id).userName().equals(authentication.getName())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         try {
             UserDto updated = userService.updateUser(id, user, image);
             return new ResponseEntity<>(updated, HttpStatus.OK);
@@ -92,7 +113,10 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteUser(@PathVariable UUID id) {
+    public ResponseEntity<?> deleteUser(@PathVariable UUID id, Authentication authentication) {
+        if (!userService.getUserById(id).userName().equals(authentication.getName())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         userService.deleteUser(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
