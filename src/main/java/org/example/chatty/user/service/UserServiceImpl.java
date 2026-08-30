@@ -1,9 +1,10 @@
 package org.example.chatty.user.service;
 
+import org.example.chatty.common.exception.DuplicateUserException;
+import org.example.chatty.common.exception.UserNotFoundException;
 import org.example.chatty.user.dto.UserDto;
 import org.example.chatty.user.entity.User;
 import org.example.chatty.user.repository.UserRepo;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -11,7 +12,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -19,7 +19,6 @@ public class UserServiceImpl implements UserService {
     private final UserRepo userRepo;
     private final PasswordEncoder passwordEncoder;
 
-    @Autowired
     public UserServiceImpl(UserRepo userRepo, PasswordEncoder passwordEncoder) {
         this.userRepo = userRepo;
         this.passwordEncoder = passwordEncoder;
@@ -27,6 +26,13 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserDto addUser(User user, MultipartFile image) throws IOException {
+        if (userRepo.existsByUserName(user.getUserName())) {
+            throw new DuplicateUserException("Username '" + user.getUserName() + "' is already taken");
+        }
+        if (userRepo.existsByEmail(user.getEmail())) {
+            throw new DuplicateUserException("Email '" + user.getEmail() + "' is already registered");
+        }
+
         user.setCreatedAt(LocalDateTime.now());
         user.setPassword(encodeIfNeeded(user.getPassword()));
 
@@ -41,42 +47,36 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserDto getUserById(UUID id) {
-
         User user = userRepo.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException("User not found")
-                );
-
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
         return toDto(user);
     }
 
     @Override
     public UserDto getUserByEmail(String email) {
-        User user = userRepo.findByEmail(email).orElseThrow(() ->
-                new RuntimeException("User not found"));
+        User user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
         return toDto(user);
     }
 
     @Override
     public UserDto getUserByUserName(String userName) {
-        User user = userRepo.findByUserName(userName).orElseThrow(() ->
-                new RuntimeException("User not found"));
+        User user = userRepo.findByUserName(userName)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
         return toDto(user);
     }
 
     @Override
     public List<UserDto> getUsers() {
-        List<User> users = userRepo.findAll();
-
-        return users.stream()
+        return userRepo.findAll().stream()
                 .map(this::toDto)
                 .toList();
     }
 
     @Override
     public UserDto updateUser(UUID id, User user, MultipartFile image) throws IOException {
-        User existing = userRepo.findById(id).orElseThrow(() ->
-                new RuntimeException("User not found"));
+        User existing = userRepo.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         if (user.getUserName() != null) existing.setUserName(user.getUserName());
         if (user.getPassword() != null) existing.setPassword(encodeIfNeeded(user.getPassword()));
@@ -99,13 +99,12 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void deleteUser(UUID id) {
-        User existing = userRepo.findById(id).orElseThrow(() ->
-                new RuntimeException("User not found"));
+        User existing = userRepo.findById(id)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
         userRepo.delete(existing);
     }
 
     private UserDto toDto(User user) {
-
         return new UserDto(
                 user.getId(),
                 user.getUserName(),
@@ -117,12 +116,8 @@ public class UserServiceImpl implements UserService {
     }
 
     private String encodeIfNeeded(String password) {
-        if (password == null) {
-            return null;
-        }
-        if (password.startsWith("{")) {
-            return password;
-        }
+        if (password == null) return null;
+        if (password.startsWith("{")) return password;
         return passwordEncoder.encode(password);
     }
 }

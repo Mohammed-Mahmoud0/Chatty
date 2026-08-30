@@ -1,15 +1,9 @@
 package org.example.chatty.user.controller;
 
-import org.example.chatty.security.jwt.JwtService;
 import org.example.chatty.user.dto.UserDto;
 import org.example.chatty.user.entity.User;
 import org.example.chatty.user.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,103 +16,40 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
-    private final JwtService jwtService;
-    private final AuthenticationManager authenticationManager;
 
-    @Autowired
-    public UserController(UserService userService, AuthenticationManager authenticationManager, JwtService jwtService) {
+    public UserController(UserService userService) {
         this.userService = userService;
-        this.jwtService = jwtService;
-        this.authenticationManager = authenticationManager;
     }
 
     @GetMapping
     public ResponseEntity<List<UserDto>> getUsers() {
-        return new ResponseEntity<>(userService.getUsers(), HttpStatus.OK);
+        return ResponseEntity.ok(userService.getUsers());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserDto> getUserById(@PathVariable UUID id, Authentication authentication) {
-        if (!userService.getUserById(id).userName().equals(authentication.getName())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        UserDto userDto = userService.getUserById(id);
-        return ResponseEntity.ok(userDto);
+    public ResponseEntity<UserDto> getUserById(@PathVariable UUID id) {
+        return ResponseEntity.ok(userService.getUserById(id));
     }
 
     @GetMapping(params = "email")
-    public ResponseEntity<?> getUser(@RequestParam String email, Authentication authentication) {
-        if (!userService.getUserByEmail(email).userName().equals(authentication.getName())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        UserDto userDto = userService.getUserByEmail(email);
-        return new ResponseEntity<>(userDto, HttpStatus.OK);
+    public ResponseEntity<UserDto> getUser(@RequestParam String email) {
+        return ResponseEntity.ok(userService.getUserByEmail(email));
     }
 
     @GetMapping(params = "userName")
-    public ResponseEntity<?> getUserByUserName(@RequestParam String userName, Authentication authentication) {
-        if (!userService.getUserByUserName(userName).userName().equals(authentication.getName())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        UserDto userDto = userService.getUserByUserName(userName);
-        return new ResponseEntity<>(userDto, HttpStatus.OK);
-    }
-
-    @PostMapping("/register")
-    public ResponseEntity<?> addUser(@RequestPart User user, @RequestPart(required = false) MultipartFile image) {
-        try {
-            UserDto savedUserDto = userService.addUser(user, image);
-            return new ResponseEntity<>(savedUserDto, HttpStatus.CREATED);
-        } catch (IOException e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    @PostMapping("/login")
-    public ResponseEntity<?> loginUser(@RequestBody User user) {
-        Authentication authentication;
-        try {
-            authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            user.getUserName(),
-                            user.getPassword()
-                    )
-            );
-            if (authentication.isAuthenticated()) {
-                return new ResponseEntity<>(jwtService.generatedToken(user.getUserName()), HttpStatus.OK);
-            }
-        } catch (Exception e) {
-            return new ResponseEntity<>("Invalid username or password", HttpStatus.UNAUTHORIZED);
-        }
-        return new ResponseEntity<>("Invalid username or password", HttpStatus.UNAUTHORIZED);
+    public ResponseEntity<UserDto> getUserByUserName(@RequestParam String userName) {
+        return ResponseEntity.ok(userService.getUserByUserName(userName));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateUser(@PathVariable UUID id,
-                                        @RequestPart User user,
-                                        @RequestPart(required = false) MultipartFile image,
-                                        Authentication authentication) {
-
-        if (!userService.getUserById(id).userName().equals(authentication.getName())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
-        try {
-            UserDto updated = userService.updateUser(id, user, image);
-            return new ResponseEntity<>(updated, HttpStatus.OK);
-        } catch (IOException e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
-        }
+    public ResponseEntity<UserDto> updateUser(@PathVariable UUID id, @RequestPart User user,
+                                              @RequestPart(required = false) MultipartFile image) throws IOException {
+        return ResponseEntity.ok(userService.updateUser(id, user, image));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteUser(@PathVariable UUID id, Authentication authentication) {
-        if (!userService.getUserById(id).userName().equals(authentication.getName())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+    public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
         userService.deleteUser(id);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return ResponseEntity.noContent().build();
     }
 }
-
