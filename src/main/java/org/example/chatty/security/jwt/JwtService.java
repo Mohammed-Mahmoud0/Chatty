@@ -21,8 +21,6 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    private static final String SECRET = "TmV3U2VjcmV0S2V5Rm9ySldUU21nbmluZ1B1cnBvc2VzMTIzNDU2Nzg=\r\n'";
-
     private final String secretKey;
 
     public JwtService() {
@@ -48,7 +46,7 @@ public class JwtService {
                 .claims(claims)
                 .subject(userName)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 3)) // 3 minutes
+                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 10)) // 10 minutes
                 .signWith(getKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
