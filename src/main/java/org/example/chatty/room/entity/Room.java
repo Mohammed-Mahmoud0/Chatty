@@ -23,6 +23,10 @@ public class Room {
     @ManyToOne
     private User createdBy;
 
-    @OneToMany(mappedBy = "room")
+    @OneToMany(
+            mappedBy = "room",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
     private List<RoomMember> members;
 }

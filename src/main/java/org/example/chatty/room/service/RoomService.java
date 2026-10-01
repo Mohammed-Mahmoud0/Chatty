@@ -1,5 +1,6 @@
 package org.example.chatty.room.service;
 
+import org.example.chatty.room.dto.AddRoomMembersRequest;
 import org.example.chatty.room.dto.CreateRoomRequest;
 import org.example.chatty.room.dto.RoomResponse;
 import org.example.chatty.room.entity.Room;
@@ -17,8 +18,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class RoomService {
@@ -28,12 +32,7 @@ public class RoomService {
     private final RoomMapper roomMapper;
 
 
-    public RoomService(
-            RoomRepository roomRepository,
-            RoomMemberRepository roomMemberRepository,
-            UserRepository userRepository,
-            RoomMapper roomMapper
-    ) {
+    public RoomService(RoomRepository roomRepository, RoomMemberRepository roomMemberRepository, UserRepository userRepository, RoomMapper roomMapper) {
         this.roomRepository = roomRepository;
         this.roomMemberRepository = roomMemberRepository;
         this.userRepository = userRepository;
@@ -55,8 +54,7 @@ public class RoomService {
         owner.setUser(currentUser);
         owner.setRole(RoomRole.OWNER);
         owner.setJoinedAt(LocalDateTime.now());
-        List<RoomMember> members = request.memberIds()
-                .stream().map(memberId -> createMember(memberId, savedRoom)).toList();
+        List<RoomMember> members = request.memberIds().stream().map(memberId -> createMember(memberId, savedRoom)).toList();
         List<RoomMember> allMembers = new java.util.ArrayList<>();
         allMembers.add(owner);
         allMembers.addAll(members);
@@ -65,10 +63,130 @@ public class RoomService {
         return roomMapper.toRoomResponse(savedRoom);
     }
 
+    public List<RoomResponse> getUserRooms() {
+        User currentUser = getCurrentUser();
+        return roomMemberRepository.findByUserId(currentUser.getId()).stream().map(RoomMember::getRoom).map(roomMapper::toRoomResponse).toList();
+    }
+
+    public RoomResponse getRoom(UUID roomId) {
+        User currentUser = getCurrentUser();
+        Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room not found"));
+
+        boolean isMember = roomMemberRepository.existsByRoomAndUser(room, currentUser);
+        if (!isMember) throw new RuntimeException("You are not a member of this room");
+        return roomMapper.toRoomResponse(room);
+    }
+
+    @Transactional
+    public RoomResponse addRoomMembers(UUID roomId, AddRoomMembersRequest request) {
+        User currentUser = getCurrentUser();
+
+        if (request == null || request.userIds() == null || request.userIds().isEmpty()) {
+            throw new IllegalArgumentException("At least one user is required");
+        }
+
+        Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room not found"));
+
+        if (room.getType() == RoomType.PRIVATE) {
+            throw new RuntimeException("Members cannot be added to a private room");
+        }
+
+        RoomMember currentUserMember = roomMemberRepository.findByRoomAndUser(room, currentUser);
+
+        if (currentUserMember == null) {
+            throw new RuntimeException("You are not a member of this room");
+        }
+
+        if (currentUserMember.getRole() != RoomRole.OWNER) {
+            throw new RuntimeException("Only the owner can add members");
+        }
+
+        List<RoomMember> currentMembers = roomMemberRepository.findByRoom(room);
+
+        Set<UUID> currentMemberIds = currentMembers.stream().map(member ->
+                member.getUser().getId()).collect(Collectors.toSet());
+
+        List<RoomMember> newMembers = request.userIds()
+                .stream()
+                .distinct()
+                .filter(userId -> !currentMemberIds.contains(userId))
+                .map(userId -> createMember(userId, room))
+                .toList();
+
+        roomMemberRepository.saveAll(newMembers);
+
+        currentMembers.addAll(newMembers);
+        room.setMembers(currentMembers);
+
+        return roomMapper.toRoomResponse(room);
+    }
+
+    public void removeRoomMember(UUID roomId, UUID userId) {
+        User currentUser = getCurrentUser();
+
+        if (currentUser.getId().equals(userId)) throw new RuntimeException("You cannot remove yourself from the room");
+
+
+        Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room Not Found"));
+
+        RoomMember member = roomMemberRepository.findByRoomAndUser(room, currentUser);
+
+        if (member == null) throw new RuntimeException("You are not a member of this room");
+
+        if (member.getRole() != RoomRole.OWNER) throw new RuntimeException("Only the room owner can remove members");
+
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("the user you want to delete not found"));
+
+        if (!roomMemberRepository.existsByRoomAndUser(room, user))
+            throw new RuntimeException("The user is not a member of this room");
+
+        RoomMember targetMember = roomMemberRepository.findByRoomAndUser(room, user);
+        roomMemberRepository.delete(targetMember);
+    }
+
+    @Transactional
+    public void leaveRoom(UUID roomId) {
+        User currentUser = getCurrentUser();
+
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() ->
+                        new RuntimeException("Room not found"));
+
+        RoomMember member =
+                roomMemberRepository.findByRoomAndUser(
+                        room,
+                        currentUser
+                );
+
+        if (member == null) {
+            throw new RuntimeException(
+                    "You are not a member of this room"
+            );
+        }
+
+        if (member.getRole() == RoomRole.OWNER) {
+            throw new RuntimeException(
+                    "The room owner cannot leave the room"
+            );
+        }
+
+        roomMemberRepository.delete(member);
+    }
+
+    public void deleteRoom(UUID roomId) {
+        User currentUser = getCurrentUser();
+        Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room not found"));
+
+        RoomMember ownerMember = roomMemberRepository.findByRoomAndUser(room, currentUser);
+        if (ownerMember == null || ownerMember.getRole() != RoomRole.OWNER) {
+            throw new RuntimeException("Only the room owner can delete the room");
+        }
+        roomRepository.delete(room);
+    }
+
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return userRepository.findByUserName(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        return userRepository.findByUserName(authentication.getName()).orElseThrow(() -> new RuntimeException("User not found"));
     }
 
     private void validateCreateRoomRequest(CreateRoomRequest request, User currentUser) {
