@@ -3,8 +3,11 @@ package org.example.chatty.user.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.example.chatty.room.entity.Room;
+import org.example.chatty.room.entity.RoomMember;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -27,4 +30,10 @@ public class User {
     private String imageType;
     @Lob
     private byte[] imageData;
+
+    @OneToMany(mappedBy = "createdBy")
+    private List<Room> createdRooms;
+
+    @OneToMany(mappedBy = "user")
+    private List<RoomMember> roomMemberships;
 }

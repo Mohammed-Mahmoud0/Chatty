@@ -4,7 +4,7 @@ import org.example.chatty.common.exception.DuplicateUserException;
 import org.example.chatty.common.exception.UserNotFoundException;
 import org.example.chatty.user.dto.UserDto;
 import org.example.chatty.user.entity.User;
-import org.example.chatty.user.repository.UserRepo;
+import org.example.chatty.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,20 +16,20 @@ import java.util.UUID;
 
 @Service
 public class UserServiceImpl implements UserService {
-    private final UserRepo userRepo;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UserRepo userRepo, PasswordEncoder passwordEncoder) {
-        this.userRepo = userRepo;
+    public UserServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     public UserDto addUser(User user, MultipartFile image) throws IOException {
-        if (userRepo.existsByUserName(user.getUserName())) {
+        if (userRepository.existsByUserName(user.getUserName())) {
             throw new DuplicateUserException("Username '" + user.getUserName() + "' is already taken");
         }
-        if (userRepo.existsByEmail(user.getEmail())) {
+        if (userRepository.existsByEmail(user.getEmail())) {
             throw new DuplicateUserException("Email '" + user.getEmail() + "' is already registered");
         }
 
@@ -41,41 +41,41 @@ public class UserServiceImpl implements UserService {
             user.setImageType(image.getContentType());
             user.setImageData(image.getBytes());
         }
-        User savedUser = userRepo.save(user);
+        User savedUser = userRepository.save(user);
         return toDto(savedUser);
     }
 
     @Override
     public UserDto getUserById(UUID id) {
-        User user = userRepo.findById(id)
+        User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
         return toDto(user);
     }
 
     @Override
     public UserDto getUserByEmail(String email) {
-        User user = userRepo.findByEmail(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
         return toDto(user);
     }
 
     @Override
     public UserDto getUserByUserName(String userName) {
-        User user = userRepo.findByUserName(userName)
+        User user = userRepository.findByUserName(userName)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
         return toDto(user);
     }
 
     @Override
     public List<UserDto> getUsers() {
-        return userRepo.findAll().stream()
+        return userRepository.findAll().stream()
                 .map(this::toDto)
                 .toList();
     }
 
     @Override
     public UserDto updateUser(UUID id, User user, MultipartFile image) throws IOException {
-        User existing = userRepo.findById(id)
+        User existing = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         if (user.getUserName() != null) existing.setUserName(user.getUserName());
@@ -93,15 +93,15 @@ public class UserServiceImpl implements UserService {
             if (user.getImageData() != null) existing.setImageData(user.getImageData());
         }
 
-        User saved = userRepo.save(existing);
+        User saved = userRepository.save(existing);
         return toDto(saved);
     }
 
     @Override
     public void deleteUser(UUID id) {
-        User existing = userRepo.findById(id)
+        User existing = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
-        userRepo.delete(existing);
+        userRepository.delete(existing);
     }
 
     private UserDto toDto(User user) {
