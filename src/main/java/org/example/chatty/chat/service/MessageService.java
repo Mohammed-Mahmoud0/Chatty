@@ -6,8 +6,8 @@ import org.example.chatty.chat.dto.UpdateMessageRequest;
 import org.example.chatty.chat.entity.Message;
 import org.example.chatty.chat.mapper.MessageMapper;
 import org.example.chatty.chat.repository.MessageRepository;
+import org.example.chatty.common.exception.ResourceNotFoundException;
 import org.example.chatty.room.entity.Room;
-import org.example.chatty.room.entity.RoomMember;
 import org.example.chatty.room.repository.RoomMemberRepository;
 import org.example.chatty.room.repository.RoomRepository;
 import org.example.chatty.user.entity.User;
@@ -138,7 +138,7 @@ public class MessageService {
     private Message getMessageById(UUID messageId) {
         return messageRepository.findById(messageId)
                 .orElseThrow(() ->
-                        new RuntimeException("Message not found"));
+                        new ResourceNotFoundException("Message not found"));
     }
 
     private void checkMembership(Room room, User user) {
