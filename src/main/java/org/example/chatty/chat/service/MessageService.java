@@ -6,7 +6,9 @@ import org.example.chatty.chat.dto.UpdateMessageRequest;
 import org.example.chatty.chat.entity.Message;
 import org.example.chatty.chat.mapper.MessageMapper;
 import org.example.chatty.chat.repository.MessageRepository;
+import org.example.chatty.common.exception.ForbiddenException;
 import org.example.chatty.common.exception.ResourceNotFoundException;
+import org.example.chatty.common.exception.UserNotFoundException;
 import org.example.chatty.room.entity.Room;
 import org.example.chatty.room.repository.RoomMemberRepository;
 import org.example.chatty.room.repository.RoomRepository;
@@ -104,7 +106,7 @@ public class MessageService {
         Message message = getMessageById(messageId);
 
         if (!message.getSender().getId().equals(currentUser.getId())) {
-            throw new RuntimeException(
+            throw new ForbiddenException(
                     "You can only edit your own messages"
             );
         }
@@ -121,7 +123,7 @@ public class MessageService {
         Message message = getMessageById(messageId);
 
         if (!message.getSender().getId().equals(currentUser.getId())) {
-            throw new RuntimeException(
+            throw new ForbiddenException(
                     "You can only delete your own messages"
             );
         }
@@ -132,7 +134,7 @@ public class MessageService {
     private Room getRoom(UUID roomId) {
         return roomRepository.findById(roomId)
                 .orElseThrow(() ->
-                        new RuntimeException("Room not found"));
+                        new ResourceNotFoundException("Room not found"));
     }
 
     private Message getMessageById(UUID messageId) {
@@ -146,7 +148,7 @@ public class MessageService {
                 roomMemberRepository.existsByRoomAndUser(room, user);
 
         if (!isMember) {
-            throw new RuntimeException(
+            throw new ForbiddenException(
                     "You are not a member of this room"
             );
         }
@@ -160,7 +162,7 @@ public class MessageService {
         return userRepository
                 .findByUserName(authentication.getName())
                 .orElseThrow(() ->
-                        new RuntimeException("User not found"));
+                        new UserNotFoundException("User not found"));
     }
 
     private void validateContent(String content) {
