@@ -53,6 +53,31 @@ public class MessageService {
     ) {
         User currentUser = getCurrentUser();
 
+        return saveMessage(roomId, request, currentUser);
+    }
+
+    @Transactional
+    public MessageResponse createMessageFromWebSocket(
+            UUID roomId,
+            CreateMessageRequest request,
+            String username
+    ) {
+        User currentUser = userRepository.findByUserName(username)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found"));
+
+        return saveMessage(roomId, request, currentUser);
+    }
+
+    private MessageResponse saveMessage(
+            UUID roomId,
+            CreateMessageRequest request,
+            User currentUser
+    ) {
+        if (request == null) {
+            throw new IllegalArgumentException("Message request is required");
+        }
+
         validateContent(request.content());
 
         Room room = getRoom(roomId);

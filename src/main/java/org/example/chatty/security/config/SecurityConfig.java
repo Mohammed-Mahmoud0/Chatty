@@ -49,6 +49,7 @@ public class SecurityConfig {
         http.csrf(customizer -> customizer.disable())
                 .authorizeHttpRequests(request -> request
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/ws", "/ws/**").permitAll()
                         .anyRequest().authenticated())
                 .authenticationProvider(authProvider)
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(authenticationEntryPoint))
