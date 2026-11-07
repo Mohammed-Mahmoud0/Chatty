@@ -1,10 +1,13 @@
 package org.example.chatty.user.service;
 
 import org.example.chatty.common.exception.DuplicateUserException;
+import org.example.chatty.common.exception.ForbiddenException;
 import org.example.chatty.common.exception.UserNotFoundException;
 import org.example.chatty.user.dto.UserDto;
 import org.example.chatty.user.entity.User;
 import org.example.chatty.user.repository.UserRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -78,6 +81,12 @@ public class UserServiceImpl implements UserService {
         User existing = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (!authentication.getName().equals(existing.getUserName())) {
+            throw new ForbiddenException("You can only update your own profile");
+        }
+
         if (user.getUserName() != null) existing.setUserName(user.getUserName());
         if (user.getPassword() != null) existing.setPassword(encodeIfNeeded(user.getPassword()));
         existing.setStatus(user.isStatus());
@@ -101,6 +110,12 @@ public class UserServiceImpl implements UserService {
     public void deleteUser(UUID id) {
         User existing = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!authentication.getName().equals(existing.getUserName())) {
+            throw new ForbiddenException("You can only delete your own profile");
+        }
+
         userRepository.delete(existing);
     }
 
