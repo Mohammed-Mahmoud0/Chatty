@@ -1,7 +1,5 @@
 package org.example.chatty.user.dto;
 
-import jakarta.persistence.Lob;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
 

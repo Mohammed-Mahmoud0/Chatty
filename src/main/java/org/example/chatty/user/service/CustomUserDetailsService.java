@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
+
     private final UserRepository userRepository;
 
     public CustomUserDetailsService(UserRepository userRepository) {
@@ -20,20 +21,16 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByUserName(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        return org.springframework.security.core.userdetails.User
-                .withUsername(user.getUserName())
-                .password(normalizeStoredPassword(user.getPassword()))
-                .authorities("USER")
-                .build();
-    }
-
-    private String normalizeStoredPassword(String storedPassword) {
-        if (storedPassword == null || storedPassword.isBlank()) {
+        String storedPassword = user.getPassword();
+        if (storedPassword == null || !storedPassword.startsWith("{")) {
+            // Raw legacy passwords must be reset/migrated, not silently accepted as {noop}.
             throw new UsernameNotFoundException("Invalid credentials");
         }
-        if (storedPassword.startsWith("{")) {
-            return storedPassword;
-        }
-        return "{noop}" + storedPassword;
+
+        return org.springframework.security.core.userdetails.User
+                .withUsername(user.getUserName())
+                .password(storedPassword)
+                .authorities("USER")
+                .build();
     }
 }

@@ -1,8 +1,10 @@
 package org.example.chatty.user.controller;
 
+import jakarta.validation.Valid;
+import org.example.chatty.user.dto.UpdateUserRequest;
 import org.example.chatty.user.dto.UserDto;
-import org.example.chatty.user.entity.User;
 import org.example.chatty.user.service.UserService;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -11,8 +13,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
-@RequestMapping("/api/users")
 @RestController
+@RequestMapping("/api/users")
 public class UserController {
 
     private final UserService userService;
@@ -32,7 +34,7 @@ public class UserController {
     }
 
     @GetMapping(params = "email")
-    public ResponseEntity<UserDto> getUser(@RequestParam String email) {
+    public ResponseEntity<UserDto> getUserByEmail(@RequestParam String email) {
         return ResponseEntity.ok(userService.getUserByEmail(email));
     }
 
@@ -41,10 +43,13 @@ public class UserController {
         return ResponseEntity.ok(userService.getUserByUserName(userName));
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<UserDto> updateUser(@PathVariable UUID id, @RequestPart User user,
-                                              @RequestPart(required = false) MultipartFile image) throws IOException {
-        return ResponseEntity.ok(userService.updateUser(id, user, image));
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UserDto> updateUser(
+            @PathVariable UUID id,
+            @Valid @RequestPart("user") UpdateUserRequest request,
+            @RequestPart(value = "image", required = false) MultipartFile image
+    ) throws IOException {
+        return ResponseEntity.ok(userService.updateUser(id, request, image));
     }
 
     @DeleteMapping("/{id}")
