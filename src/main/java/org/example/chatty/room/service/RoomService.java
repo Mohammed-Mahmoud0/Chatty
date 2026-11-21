@@ -172,7 +172,7 @@ public class RoomService {
 
         roomMemberRepository.delete(member);
     }
-
+    @Transactional
     public void deleteRoom(UUID roomId) {
         User currentUser = getCurrentUser();
         Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room not found"));

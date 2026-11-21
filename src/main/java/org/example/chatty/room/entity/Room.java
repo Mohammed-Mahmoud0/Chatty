@@ -3,6 +3,7 @@ package org.example.chatty.room.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.example.chatty.chat.entity.Message;
 import org.example.chatty.user.entity.User;
 
 import java.time.LocalDateTime;
@@ -22,11 +23,12 @@ public class Room {
     private LocalDateTime createdAt;
     @ManyToOne
     private User createdBy;
-
     @OneToMany(
             mappedBy = "room",
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
     private List<RoomMember> members;
+    @OneToMany(mappedBy = "room", cascade = CascadeType.REMOVE)
+    private List<Message> messages;
 }
