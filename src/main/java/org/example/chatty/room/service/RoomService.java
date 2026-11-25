@@ -1,5 +1,7 @@
 package org.example.chatty.room.service;
 
+import org.example.chatty.common.exception.ForbiddenException;
+import org.example.chatty.common.exception.ResourceNotFoundException;
 import org.example.chatty.room.dto.AddRoomMembersRequest;
 import org.example.chatty.room.dto.CreateRoomRequest;
 import org.example.chatty.room.dto.RoomResponse;
@@ -70,10 +72,10 @@ public class RoomService {
 
     public RoomResponse getRoom(UUID roomId) {
         User currentUser = getCurrentUser();
-        Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room not found"));
+        Room room = roomRepository.findById(roomId).orElseThrow(() -> new ResourceNotFoundException("Room not found"));
 
         boolean isMember = roomMemberRepository.existsByRoomAndUser(room, currentUser);
-        if (!isMember) throw new RuntimeException("You are not a member of this room");
+        if (!isMember) throw new ForbiddenException("You are not a member of this room");
         return roomMapper.toRoomResponse(room);
     }
 
@@ -85,20 +87,20 @@ public class RoomService {
             throw new IllegalArgumentException("At least one user is required");
         }
 
-        Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room not found"));
+        Room room = roomRepository.findById(roomId).orElseThrow(() -> new ResourceNotFoundException("Room not found"));
 
         if (room.getType() == RoomType.PRIVATE) {
-            throw new RuntimeException("Members cannot be added to a private room");
+            throw new IllegalArgumentException("Members cannot be added to a private room");
         }
 
         RoomMember currentUserMember = roomMemberRepository.findByRoomAndUser(room, currentUser);
 
         if (currentUserMember == null) {
-            throw new RuntimeException("You are not a member of this room");
+            throw new ForbiddenException("You are not a member of this room");
         }
 
         if (currentUserMember.getRole() != RoomRole.OWNER) {
-            throw new RuntimeException("Only the owner can add members");
+            throw new ForbiddenException("Only the owner can add members");
         }
 
         List<RoomMember> currentMembers = roomMemberRepository.findByRoom(room);
@@ -124,21 +126,22 @@ public class RoomService {
     public void removeRoomMember(UUID roomId, UUID userId) {
         User currentUser = getCurrentUser();
 
-        if (currentUser.getId().equals(userId)) throw new RuntimeException("You cannot remove yourself from the room");
+        if (currentUser.getId().equals(userId))
+            throw new ForbiddenException("You cannot remove yourself from the room");
 
 
-        Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room Not Found"));
+        Room room = roomRepository.findById(roomId).orElseThrow(() -> new ResourceNotFoundException("Room Not Found"));
 
         RoomMember member = roomMemberRepository.findByRoomAndUser(room, currentUser);
 
-        if (member == null) throw new RuntimeException("You are not a member of this room");
+        if (member == null) throw new ForbiddenException("You are not a member of this room");
 
-        if (member.getRole() != RoomRole.OWNER) throw new RuntimeException("Only the room owner can remove members");
+        if (member.getRole() != RoomRole.OWNER) throw new ForbiddenException("Only the room owner can remove members");
 
-        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("the user you want to delete not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("the user you want to delete not found"));
 
         if (!roomMemberRepository.existsByRoomAndUser(room, user))
-            throw new RuntimeException("The user is not a member of this room");
+            throw new ResourceNotFoundException("The user is not a member of this room");
 
         RoomMember targetMember = roomMemberRepository.findByRoomAndUser(room, user);
         roomMemberRepository.delete(targetMember);
@@ -150,7 +153,7 @@ public class RoomService {
 
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() ->
-                        new RuntimeException("Room not found"));
+                        new ResourceNotFoundException("Room not found"));
 
         RoomMember member =
                 roomMemberRepository.findByRoomAndUser(
@@ -159,34 +162,35 @@ public class RoomService {
                 );
 
         if (member == null) {
-            throw new RuntimeException(
+            throw new ForbiddenException(
                     "You are not a member of this room"
             );
         }
 
         if (member.getRole() == RoomRole.OWNER) {
-            throw new RuntimeException(
+            throw new ForbiddenException(
                     "The room owner cannot leave the room"
             );
         }
 
         roomMemberRepository.delete(member);
     }
+
     @Transactional
     public void deleteRoom(UUID roomId) {
         User currentUser = getCurrentUser();
-        Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("Room not found"));
+        Room room = roomRepository.findById(roomId).orElseThrow(() -> new ResourceNotFoundException("Room not found"));
 
         RoomMember ownerMember = roomMemberRepository.findByRoomAndUser(room, currentUser);
         if (ownerMember == null || ownerMember.getRole() != RoomRole.OWNER) {
-            throw new RuntimeException("Only the room owner can delete the room");
+            throw new ForbiddenException("Only the room owner can delete the room");
         }
         roomRepository.delete(room);
     }
 
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return userRepository.findByUserName(authentication.getName()).orElseThrow(() -> new RuntimeException("User not found"));
+        return userRepository.findByUserName(authentication.getName()).orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     private void validateCreateRoomRequest(CreateRoomRequest request, User currentUser) {
@@ -226,7 +230,7 @@ public class RoomService {
     }
 
     private RoomMember createMember(UUID userId, Room room) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
         RoomMember member = new RoomMember();
         member.setRoom(room);
         member.setUser(user);
